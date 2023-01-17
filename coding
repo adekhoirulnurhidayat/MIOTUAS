@@ -1,0 +1,116 @@
+/**
+   ESP32 + DHT22 Example for Wokwi
+   
+   https://wokwi.com/arduino/projects/322410731508073042
+*/
+
+#include "DHTesp.h"
+#include <FirebaseESP32.h>
+#include <WiFi.h>
+
+// Harus diisi
+#define FIREBASE_HOST "https://miot-e8e6c-default-rtdb.firebaseio.com/"
+#define FIREBASE_AUTH "9xboCUdlcq3ehJZC5ZSnrCq2m2KXj6WnqE4Bypak"
+#define WIFI_SSID "Wokwi-GUEST"
+#define WIFI_PASSWORD ""
+//#define WIFI_SSID "Kost IJO"
+//#define WIFI_PASSWORD "jambon1234" 
+#define relay1 2
+#define relay2 12
+
+const int DHT_PIN = 15;
+
+
+FirebaseData firebaseData;
+DHTesp dht;
+int load1, load2, Power;
+void setup() {
+  Serial.begin(115200);
+  dht.setup(DHT_PIN, DHTesp::DHT22);
+
+  // Koneksi ke Wifi
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("connecting");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println();
+  Serial.print("Connected with IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+
+  pinMode(relay1, OUTPUT);digitalWrite(relay1, HIGH);
+
+  pinMode(relay2, OUTPUT);digitalWrite(relay2, HIGH);
+}
+
+void loop() {
+   // Sensor DHT11 membaca suhu dan kelembaban
+  float t = dht.getTemperature();
+  float h = dht.getHumidity();
+
+  // Menampilkan suhu dan kelembaban pada serial monitor
+  Serial.print("Suhu: ");
+  Serial.print(t);
+  Serial.println(" *C");
+  Serial.print("Kelembaban: ");
+  Serial.print(h);
+  Serial.println(" %");
+  Serial.println();
+
+  if (Firebase.setFloat(firebaseData, "/Hasil_Pembacaan/suhu", t)){
+      Serial.println("Suhu terkirim");
+    } else{
+      Serial.println("Suhu tidak terkirim");
+      Serial.println("Karena: " + firebaseData.errorReason());
+    } 
+    
+  if (Firebase.setFloat(firebaseData, "/Hasil_Pembacaan/kelembaban", h)){
+      Serial.println("Kelembaban terkirim");
+      Serial.println();
+    } else{
+      Serial.println("Kelembaban tidak terkirim");
+      Serial.println("Karena: " + firebaseData.errorReason());
+    }
+    
+  delay(1000);
+
+// Fuzzy
+  //  if(t>40){
+  //    digitalWrite(relay1, LOW);
+  //  }else{
+  //    digitalWrite(relay1, HIGH);
+  //  }
+
+  //  if(h<30){
+  //    digitalWrite(relay2, LOW);
+  //  }else{
+  //    digitalWrite(relay2, HIGH);
+  //  }
+   
+
+  
+
+  if(Firebase.get(firebaseData,"/Hasil_Pembacaan/L1")) {
+    if (firebaseData.dataType() == "string") {
+    load1 = firebaseData.stringData().toInt();
+    }
+  }
+
+  if(Firebase.get(firebaseData,"/Hasil_Pembacaan/L2")) {
+    if (firebaseData.dataType() == "string") {
+    load2 = firebaseData.stringData().toInt();
+    }
+  }
+
+  if(Power==0){
+    digitalWrite(relay1, load1);
+    digitalWrite(relay2, load2);
+  }else{
+    digitalWrite(relay1, HIGH);
+    digitalWrite(relay2, HIGH);
+  }
+}
